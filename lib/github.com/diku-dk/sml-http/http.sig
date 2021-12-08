@@ -53,8 +53,10 @@ signature HTTP = sig
   end
 
   structure Response : sig
-    type t = {version: Version.t, status: StatusCode.t, headers: (string*string)list, body: string option}
-(*    val parse    : (t, 'st) p *)
+    type line = {version: Version.t, status: StatusCode.t}
+    type t = {line: line, headers: (string*string)list, body: string option}
+    (*    val parse    : (t, 'st) p *)
+    val lineToString : line -> string
     val toString : t -> string
   end
 

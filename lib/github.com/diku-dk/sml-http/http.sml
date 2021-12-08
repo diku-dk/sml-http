@@ -20,6 +20,14 @@ structure Http :> HTTP = struct
       in loop s nil
       end
 
+  fun scanAnyChar get s = get s
+
+ (* memo: instead of building a list, we should be able to extract the string from the
+    underlying slice *)
+
+  fun scanAnyChars get =
+      (repeat scanAnyChar >>@ implode) get
+
   val p_space : (unit,'st) p =
    fn g => ign (scanChar (fn c => c = #" ")) g
 
@@ -136,10 +144,16 @@ structure Http :> HTTP = struct
               Url.parse >>@
               (fn ((m,v),u) => {method=m,version=v,url=u})) g
     val parse : (t, 'st) p =
-     fn g => (parse_line >>- str "\r\n" >>>
-              parse_headers >??
-              (str "\r\n" ->> scanChars (fn _ => true) >>- eos)
-              >>@ (fn ((l,hs),b) => {line=l,headers=hs,body=b})) g
+     fn g => (parse_line >>-
+              str "\r\n" >>>
+              parse_headers >>-
+              str "\r\n" >>>
+              (scanAnyChars >>@ (fn "" => NONE | s => SOME s)) >>-
+              eos >>@ (fn ((l,hs),body) =>
+                          {line=l,
+                           headers=hs,
+                           body=body})
+             ) g
 
     val methodToString =
      fn OPTIONS => "OPTIONS"
@@ -157,25 +171,30 @@ structure Http :> HTTP = struct
                                Url.toString url]
 
     fun toString {line,headers,body} =
-        String.concatWith "\r\n" [lineToString line,
-                                  String.concatWith "\r\n" (map Header.toString headers),
-                                  "",
-                                  case body of NONE => "" | SOME b => b]
-
+        let val line = lineToString line
+            val body = case body of NONE => "" | SOME b => b
+        in String.concatWith "\r\n"
+                             (line ::
+                              foldr (fn (h,a) => Header.toString h :: a)
+                                    ["",body] headers)
+        end
   end
 
   structure Response = struct
-    type t = {version: Version.t, status: StatusCode.t,
-              headers: (string*string)list, body: string option}
-(*  val parse    : (t, 'st) p *)
-    fun toString {version, status, headers, body} =
-        let val line =
-                String.concatWith " " [Version.toString version,
-                                       StatusCode.toString status,
-                                       StatusCode.reason status]
-            val headers = String.concatWith "\r\n" (map Header.toString headers)
+    type line = {version: Version.t, status: StatusCode.t}
+    type t = {line:line, headers: (string*string)list, body: string option}
+    (*  val parse    : (t, 'st) p *)
+    fun lineToString {version, status} =
+        String.concatWith " " [Version.toString version,
+                               StatusCode.toString status,
+                               StatusCode.reason status]
+    fun toString {line, headers, body} =
+        let val line = lineToString line
             val body = case body of NONE => "" | SOME b => b
-        in String.concatWith "\r\n" [line, headers, "", body]
+        in String.concatWith "\r\n"
+                             (line ::
+                              foldr (fn (h,a) => Header.toString h :: a)
+                                    ["", body] headers)
         end
   end
 

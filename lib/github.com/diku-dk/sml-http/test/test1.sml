@@ -115,3 +115,11 @@ fun test_req_headerslack msg s t =
 val () = test_req_headerslack "req-10"
      "POST HTTP/1.1 http://di.ku/\r\nKey1:   Value1 \r\nKey2: Value2  \r\n\r\nHere is some form data"
      "POST HTTP/1.1 http://di.ku/\r\nKey1:Value1\r\nKey2:Value2\r\n\r\nHere is some form data"
+
+val () = test_req_headerslack "req-11"
+     "POST HTTP/1.1 http://di.ku:8000/\r\n\r\nHere is some form data"
+     "POST HTTP/1.1 http://di.ku:8000/\r\n\r\nHere is some form data"
+
+val () = test_req_headerslack "req-12"
+     "DELETE HTTP/1.0 http://di.ku:8000/data?id=8\r\n\r\n"
+     "DELETE HTTP/1.0 http://di.ku:8000/data?id=8\r\n\r\n"
