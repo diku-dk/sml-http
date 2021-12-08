@@ -1,0 +1,3 @@
+require {
+  github.com/diku-dk/sml-parse 0.1.3 #b5600d52e87113fbfd9a2377f33f2f14b2a693a6
+}
