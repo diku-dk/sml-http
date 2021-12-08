@@ -79,12 +79,17 @@ structure Http :> HTTP = struct
     val parse : (t, 'st) p =
      fn g => (str "HTTP/1.0" || str "HTTP/1.1") g
     fun toString x = x
+    val HTTP_1_0 = "HTTP/1.0"
+    val HTTP_1_1 = "HTTP/1.1"
   end
 
   structure StatusCode = struct
     open HttpStatus
     val parse : (t, 'st) p =  (* 3 digits *)
      fn g => (scanChars Char.isDigit ?? fromString) g
+    val OK = "200"
+    val BadRequest = "400"
+    val InternalServerError = "500"
   end
 
   structure Header = struct

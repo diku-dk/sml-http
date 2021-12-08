@@ -18,17 +18,23 @@ signature HTTP = sig
   end
 
   structure Version : sig
-    type t = string  (* HTTP/1.0, HTTP/1.1, ... *)
-    val parse : (t, 'st) p
-    val toString   : t -> string
+    eqtype t
+    val parse    : (t, 'st) p
+    val toString : t -> string
+    val HTTP_1_0 : t
+    val HTTP_1_1 : t
   end
 
   structure StatusCode : sig
-    type t           (* 3 digits *)
+    eqtype t           (* 3 digits *)
     val reason     : t -> string
     val fromString : string -> t option
     val parse      : (t, 'st) p
     val toString   : t -> string
+
+    val OK                  : t
+    val BadRequest          : t
+    val InternalServerError : t
   end
 
   structure Header : sig
