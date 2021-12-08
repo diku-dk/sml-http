@@ -1,24 +1,7 @@
 structure Http :> HTTP = struct
 
   open ScanUtil
-  infix >>> ->> >>- >>? || >>@ >>* ?? >??
-
-  (* op >?? : ('a,'st) p * ('b,'st) p -> ('a * 'b option, 'st) p *)
-  fun (p1 >?? p2) g s =
-      case p1 g s of
-          SOME (a,s) =>
-          (case p2 g s of
-               SOME (b,s) => SOME((a,SOME b),s)
-             | NONE => SOME((a,NONE),s))
-        | NONE => NONE
-
-  fun repeat p g s =
-      let fun loop s acc =
-              case p g s of
-                  NONE => SOME(rev acc,s)
-                | SOME(e,s) => loop s (e::acc)
-      in loop s nil
-      end
+  infix >>> ->> >>- >>? || >>@ >>* ??
 
   fun scanAnyChar get s = get s
 
@@ -26,7 +9,7 @@ structure Http :> HTTP = struct
     underlying slice *)
 
   fun scanAnyChars get =
-      (repeat scanAnyChar >>@ implode) get
+      (list scanAnyChar >>@ implode) get
 
   val p_space : (unit,'st) p =
    fn g => ign (scanChar (fn c => c = #" ")) g
@@ -55,11 +38,12 @@ structure Http :> HTTP = struct
 
     val parse : (t, 'st) p =
      fn g =>
-       ((p_scheme >>- str "://" >>> p_host) >??
-        (str ":" ->> p_port) >??
-        con ("/",()) >??
-        p_path >??
-        p_query ??
+        ((p_scheme >>- str "://") >>>
+         p_host >>>
+         option (str ":" ->> p_port) >>>
+         option (con ("/",())) >>>
+         option p_path >>>
+         option p_query ??
         (fn (((((s, h), port), sep), path), query) =>
             let val path = case (sep, path) of
                                (SOME(), SOME p) => SOME ("/" ^ p)
@@ -110,11 +94,11 @@ structure Http :> HTTP = struct
                                  c <> #":") >>-
               str ":" >>>
               skipWS(scanChars (fn c => Char.isPrint c andalso
-                                        not(Char.isSpace c))) >??
-              scanChars (fn c => Char.isSpace c andalso
+                                        not(Char.isSpace c))) >>-
+              option(scanChars (fn c => Char.isSpace c andalso
                                  c <> #"\n" andalso
-                                 c <> #"\r") >>@
-              (#1)) g
+                                 c <> #"\r"))
+             ) g
     fun toString (n,v) =
         n ^ ":" ^ v
   end
@@ -136,13 +120,14 @@ structure Http :> HTTP = struct
               con ("CONNECT", CONNECT)) g
 
     val parse_headers : ((string*string)list, 'st) p =
-     fn g => repeat (Header.parse >>- str "\r\n") g
+     fn g => list (Header.parse >>- str "\r\n") g
 
     val parse_line : (line, 'st) p =
      fn g => (parse_method >>- p_space >>>
               Version.parse >>- p_space >>>
               Url.parse >>@
               (fn ((m,v),u) => {method=m,version=v,url=u})) g
+
     val parse : (t, 'st) p =
      fn g => (parse_line >>-
               str "\r\n" >>>

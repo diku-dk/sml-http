@@ -1,5 +1,5 @@
 package github.com/diku-dk/sml-http
 
 require {
-  github.com/diku-dk/sml-parse 0.1.3 #b5600d52e87113fbfd9a2377f33f2f14b2a693a6
+  github.com/diku-dk/sml-parse 0.1.4 #95af726fc067b830986cf5bee55221ba7a250c2f
 }
