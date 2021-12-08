@@ -1,6 +1,17 @@
 # sml-http [![CI](https://github.com/diku-dk/sml-http/workflows/CI/badge.svg)](https://github.com/diku-dk/sml-http/actions)
 
-HTTP utility library for Standard ML
+This Standard ML package provides functionality for managing HTTP
+requests and responses. In particular, the library includes
+functionality for parsing HTTP/1.0 requests and responses.
+
+The functionality is based on the
+[ScanUtil](https://github.com/diku-dk/sml-parse/blob/main/lib/github.com/diku-dk/sml-parse/SCAN_UTIL.sig)
+library from the [sml-parse](https://github.com/diku-dk/sml-parse)
+package.
+
+Notice that this package does not include functionality for
+establishing and managing the underlying inet-socket connections on
+which the HTTP protocol is based.
 
 ## Overview of MLB files
 
