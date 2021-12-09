@@ -120,15 +120,25 @@ structure Http :> HTTP = struct
 
   structure Header = struct
     type t = string * string
+
+    fun removeTrailingWS s =
+        let fun loop i =
+                if i > 0 andalso Char.isSpace(String.sub(s,i-1))
+                then loop (i-1)
+                else if i = size s then s
+                else if i <= 0 then ""
+                else String.extract(s,0,SOME i)
+        in loop (size s)
+        end
+
     val parse : (string*string, 'st) p =
      fn g => (scanChars (fn c => Char.isPrint c andalso
                                  c <> #":") >>-
               str ":" >>>
-              skipWS(scanChars (fn c => Char.isPrint c andalso
-                                        not(Char.isSpace c))) >>-
-              option(scanChars (fn c => Char.isSpace c andalso
-                                 c <> #"\n" andalso
-                                 c <> #"\r"))
+              (skipWS(scanChars (fn c => Char.isPrint c andalso
+                                         c <> #"\r" andalso
+                                         c <> #"\n")) >>@
+                     removeTrailingWS)
              ) g
     fun toString (n,v) =
         n ^ ":" ^ v

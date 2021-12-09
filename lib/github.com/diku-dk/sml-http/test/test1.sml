@@ -87,6 +87,16 @@ val () = test "header-2" id "Key:Value" (fn () => Header.toString(fromString Hea
 
 val () = test "header-3" id "Key:Value" (fn () => Header.toString(fromString Header.parse "Key:  Value "))
 
+val h1s = "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"96\", \"Google Chrome\";v=\"96\""
+val h1t = "sec-ch-ua:\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"96\", \"Google Chrome\";v=\"96\""
+
+val () = test "header-4" id h1t (fn () => Header.toString(fromString Header.parse h1s))
+
+val h2t = "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
+
+val h2s = "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
+
+val () = test "header-5" id h2t (fn () => Header.toString(fromString Header.parse h2s))
 
 (* Requests *)
 
