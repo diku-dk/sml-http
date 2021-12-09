@@ -20,33 +20,39 @@ fun fromString p s =
         else raise Fail "expecting empty slice"
       | NONE => raise Fail "parsing failed"
 
-(* Url *)
+(* Uri *)
 
-fun testUrl s url =
-    test s id url (fn () => Url.toString(fromString Url.parse url))
+fun testUri s uri =
+    test s id uri (fn () => Uri.toString(fromString Uri.parse uri))
 
-val () = testUrl "url-1a" "http://di.ku.dk/"
+val () = testUri "uri-1a" "http://di.ku.dk/"
 
-val () = testUrl "url-1b" "https://di.ku.dk/"
+val () = testUri "uri-1b" "https://di.ku.dk/"
 
-val () = testUrl "url-2" "http://di.ku.dk:8000/"
+val () = testUri "uri-2" "http://di.ku.dk:8000/"
 
-val () = testUrl "url-3" "http://di.ku.dk:8000/hello.sml"
+val () = testUri "uri-3" "http://di.ku.dk:8000/hello.sml"
 
-val () = testUrl "url-4" "http://di.ku.dk:8000/hello.sml?hej"
+val () = testUri "uri-4" "http://di.ku.dk:8000/hello.sml?hej"
 
-val () = testUrl "url-5" "http://di.ku.dk/?hej"
+val () = testUri "uri-5" "http://di.ku.dk/?hej"
 
-val () = testUrl "url-6" "http://ku.dk/?hej"
+val () = testUri "uri-6" "http://ku.dk/?hej"
 
-fun testUrl_noslash s url =
-    test s id (url ^ "/") (fn () => Url.toString(fromString Url.parse url))
+val () = testUri "url-7" "*"
 
-val () = testUrl_noslash "url-10" "http://di.ku.dk"
+val () = testUri "url-8" "/?hej"
 
-val () = testUrl_noslash "url-11" "https://di.ku.dk"
+val () = testUri "url-9" "/"
 
-val () = testUrl_noslash "url-12" "https://di.ku.dk:8000"
+fun testUri_noslash s uri =
+    test s id (uri ^ "/") (fn () => Uri.toString(fromString Uri.parse uri))
+
+val () = testUri_noslash "uri-10" "http://di.ku.dk"
+
+val () = testUri_noslash "uri-11" "https://di.ku.dk"
+
+val () = testUri_noslash "uri-12" "https://di.ku.dk:8000"
 
 (* Mime types *)
 
@@ -99,27 +105,35 @@ val () = test_method "method-8" "CONNECT"
 fun test_line s e =
     test s id e (fn () => Request.lineToString(fromString Request.parse_line e))
 
-val () = test_line "line-1" "GET HTTP/1.1 http://di.ku/"
+val () = test_line "line-1" "GET http://di.ku/ HTTP/1.1"
 
-val () = test_line "line-2" "HEAD HTTP/1.0 http://di.ku:8000/index.html?q=s"
+val () = test_line "line-2" "HEAD http://di.ku:8000/index.html?q=s HTTP/1.0"
 
 fun test_req s e =
     test s id e (fn () => Request.toString(fromString Request.parse e))
 
-val () = test_req "req-1" "POST HTTP/1.1 http://di.ku/\r\nKey1:Value1\r\nKey2:Value2\r\n\r\nHere is some form data"
+val () = test_req "req-1" "POST http://di.ku/ HTTP/1.1\r\nKey1:Value1\r\nKey2:Value2\r\n\r\nHere is some form data"
+
+val () = test_req "req-2" "POST / HTTP/1.1\r\nKey1:Value1\r\nKey2:Value2\r\n\r\nHere is some form data"
+
+val () = test_req "req-3" "POST /ok.sml?a=34 HTTP/1.1\r\nKey1:Value1\r\nKey2:Value2\r\n\r\nHere is some form data"
 
 
 fun test_req_headerslack msg s t =
     test msg id t (fn () => Request.toString(fromString Request.parse s))
 
 val () = test_req_headerslack "req-10"
-     "POST HTTP/1.1 http://di.ku/\r\nKey1:   Value1 \r\nKey2: Value2  \r\n\r\nHere is some form data"
-     "POST HTTP/1.1 http://di.ku/\r\nKey1:Value1\r\nKey2:Value2\r\n\r\nHere is some form data"
+     "POST http://di.ku/ HTTP/1.1\r\nKey1:   Value1 \r\nKey2: Value2  \r\n\r\nHere is some form data"
+     "POST http://di.ku/ HTTP/1.1\r\nKey1:Value1\r\nKey2:Value2\r\n\r\nHere is some form data"
 
 val () = test_req_headerslack "req-11"
-     "POST HTTP/1.1 http://di.ku:8000/\r\n\r\nHere is some form data"
-     "POST HTTP/1.1 http://di.ku:8000/\r\n\r\nHere is some form data"
+     "POST http://di.ku:8000/ HTTP/1.1\r\n\r\nHere is some form data"
+     "POST http://di.ku:8000/ HTTP/1.1\r\n\r\nHere is some form data"
 
 val () = test_req_headerslack "req-12"
-     "DELETE HTTP/1.0 http://di.ku:8000/data?id=8\r\n\r\n"
-     "DELETE HTTP/1.0 http://di.ku:8000/data?id=8\r\n\r\n"
+     "DELETE http://di.ku:8000/data?id=8 HTTP/1.0\r\n\r\n"
+     "DELETE http://di.ku:8000/data?id=8 HTTP/1.0\r\n\r\n"
+
+val () = test_req_headerslack "req-13"
+     "DELETE /data?id=8 HTTP/1.0\r\n\r\n"
+     "DELETE /data?id=8 HTTP/1.0\r\n\r\n"

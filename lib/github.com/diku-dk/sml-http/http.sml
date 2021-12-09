@@ -14,10 +14,13 @@ structure Http :> HTTP = struct
   val p_space : (unit,'st) p =
    fn g => ign (scanChar (fn c => c = #" ")) g
 
-  structure Url = struct
-    type t = {scheme: string, host: string,
-              port: int option, path: string,
-              query: string}   (* http://domain:port/path?query *)
+  structure Uri = struct
+    datatype t = URL of {scheme: string, host: string,
+                         port: int option, path: string,
+                         query: string}   (* http://domain:port/path?query *)
+               | AST
+               | PATH of {path: string,
+                          query: string}  (* /path?query *)
 
     val p_scheme : (string, 'st) p =
      fn g => (str "https" || str "http") g
@@ -36,7 +39,7 @@ structure Http :> HTTP = struct
      fn g => (str "?" ->>
               scanChars (fn c => not(Char.isSpace c))) g
 
-    val parse : (t, 'st) p =
+    val parse_url : (t, 'st) p =
      fn g =>
         ((p_scheme >>- str "://") >>>
          p_host >>>
@@ -52,17 +55,40 @@ structure Http :> HTTP = struct
             in case path of
                    NONE => NONE
                  | SOME path =>
-                   SOME {scheme=s,host=h,port=port,path=path,
-                         query=Option.getOpt(query,"")}
+                   SOME (URL {scheme=s,host=h,port=port,path=path,
+                              query=Option.getOpt(query,"")})
             end)) g
 
-    fun toString {scheme, host, port, path, query} =
-        scheme ^ "://" ^ host ^
-        (case port of
-             SOME i => ":" ^ Int.toString i
-           | NONE => "") ^
-        path ^
-        (case query of "" => "" | _ => "?" ^ query)
+    val parse_ast : (t, 'st) p =
+     fn g => con ("*",AST) g
+
+    val parse_path : (t, 'st) p =
+       fn g =>
+          (con ("/",()) ->>
+           option p_path >>>
+           option p_query >>@
+           (fn (path, query) =>
+               let val path = case path of NONE => "/"
+                                         | SOME p => "/" ^ p
+               in PATH {path=path,query=Option.getOpt(query,"")}
+               end)) g
+
+    val parse : (t, 'st) p =
+        fn g => (parse_url || parse_ast || parse_path) g
+
+    fun toString t =
+        case t of
+            URL {scheme, host, port, path, query} =>
+            scheme ^ "://" ^ host ^
+            (case port of
+                 SOME i => ":" ^ Int.toString i
+               | NONE => "") ^
+            path ^
+            (case query of "" => "" | _ => "?" ^ query)
+          | AST => "*"
+          | PATH {path,query} =>
+            path ^
+            (case query of "" => "" | _ => "?" ^ query)
   end
 
   structure Mime = struct
@@ -111,7 +137,7 @@ structure Http :> HTTP = struct
   structure Request = struct
     datatype method = OPTIONS | GET | HEAD | POST | PUT | DELETE | TRACE | CONNECT
 
-    type line = {method: method, version: Version.t, url: Url.t}
+    type line = {method: method, uri: Uri.t, version: Version.t}
     type t = {line:line, headers: (string*string)list, body: string option}
 
     val parse_method  : (method, 'st) p =
@@ -129,9 +155,9 @@ structure Http :> HTTP = struct
 
     val parse_line : (line, 'st) p =
      fn g => (parse_method >>- p_space >>>
-              Version.parse >>- p_space >>>
-              Url.parse >>@
-              (fn ((m,v),u) => {method=m,version=v,url=u})) g
+              Uri.parse >>- p_space >>>
+              Version.parse >>@
+              (fn ((m,u),v) => {method=m,uri=u,version=v})) g
 
     val parse : (t, 'st) p =
      fn g => (parse_line >>-
@@ -155,10 +181,10 @@ structure Http :> HTTP = struct
       | TRACE => "TRACE"
       | CONNECT => "CONNECT"
 
-    fun lineToString {method,version,url} =
+    fun lineToString {method,uri,version} =
         String.concatWith " " [methodToString method,
-                               Version.toString version,
-                               Url.toString url]
+                               Uri.toString uri,
+                               Version.toString version]
 
     fun toString {line,headers,body} =
         let val line = lineToString line

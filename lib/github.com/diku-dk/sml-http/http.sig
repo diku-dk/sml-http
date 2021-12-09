@@ -2,9 +2,13 @@ signature HTTP = sig
 
   type ('a,'st) p = ('a,'st) ScanUtil.p
 
-  structure Url : sig
-    type t = {scheme: string, host: string,
-              port: int option, path: string, query: string}   (* http://domain:port/path?query *)
+  structure Uri : sig
+    datatype t = URL of {scheme: string, host: string,
+                         port: int option, path: string,
+                         query: string}   (* http://domain:port/path?query *)
+               | AST
+               | PATH of {path: string,
+                          query: string}  (* /path?query *)
     val parse    : (t, 'st) p
     val toString : t -> string
   end
@@ -46,7 +50,7 @@ signature HTTP = sig
   structure Request : sig
     datatype method = OPTIONS | GET | HEAD | POST | PUT | DELETE | TRACE | CONNECT
 
-    type line = {method: method, version: Version.t, url: Url.t}
+    type line = {method: method, uri: Uri.t, version: Version.t}
     type t = {line:line, headers: (string*string)list, body: string option}
 
     val parse_method    : (method, 'st) p
