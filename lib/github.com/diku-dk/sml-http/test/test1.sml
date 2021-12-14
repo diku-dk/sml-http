@@ -62,7 +62,7 @@ val () = test "mime-2" id "text/html" (fn () => case Mime.fromString "text/html"
                                                     SOME v => Mime.toString v
                                                   | NONE => "no")
 
-val () = test "mime-3" id "text/html" (fn () => case Mime.fromExt ".html" of
+val () = test "mime-3" id "text/html" (fn () => case Mime.fromExt "html" of
                                                     SOME v => Mime.toString v
                                                   | NONE => "no")
 
