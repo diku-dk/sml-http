@@ -18,6 +18,7 @@ version-1: OK
 version-2: OK
 status-1: OK
 status-2: OK
+status-3: OK
 header-1: OK
 header-2: OK
 header-3: OK
@@ -40,3 +41,9 @@ req-10: OK
 req-11: OK
 req-12: OK
 req-13: OK
+respline-1: OK
+respline-2: OK
+resp-0a: OK
+resp-0b: OK
+resp-1a: OK
+resp-1b: OK

@@ -14,6 +14,14 @@ structure Http :> HTTP = struct
   val p_space : (unit,'st) p =
    fn g => ign (scanChar (fn c => c = #" ")) g
 
+  fun skipChars f : (unit,'st) p =
+      fn g => fn s =>
+         case g s of
+             SOME(c,s') =>
+             if f c then skipChars f g s'
+             else SOME((),s)
+           | NONE => SOME((),s)
+
   structure Uri = struct
     datatype t = URL of {scheme: string, host: string,
                          port: int option, path: string,
@@ -209,11 +217,34 @@ structure Http :> HTTP = struct
   structure Response = struct
     type line = {version: Version.t, status: StatusCode.t}
     type t = {line:line, headers: (string*string)list, body: string option}
-    (*  val parse    : (t, 'st) p *)
+
+    val parse_line : (line,'st) p =
+     fn g => (Version.parse >>-
+              p_space >>>
+              StatusCode.parse >>-
+              p_space >>-
+              skipChars (fn c => c <> #"\r") >>@
+              (fn (v,sc) => {version=v,
+                             status=sc})
+             ) g
+
+    val parse : (t, 'st) p =
+     fn g => (parse_line >>-
+              str "\r\n" >>>
+              Request.parse_headers >>-
+              str "\r\n" >>>
+              (scanAnyChars >>@ (fn "" => NONE | s => SOME s)) >>-
+              eos >>@ (fn ((l,hs),body) =>
+                          {line=l,
+                           headers=hs,
+                           body=body})
+             ) g
+
     fun lineToString {version, status} =
-        String.concatWith " " [Version.toString version,
-                               StatusCode.toString status,
-                               StatusCode.reason status]
+        String.concat [Version.toString version, " ",
+                       StatusCode.toString status, " ",
+                       StatusCode.reason status]
+
     fun toString {line, headers, body} =
         let val line = lineToString line
             val body = case body of NONE => "" | SOME b => b

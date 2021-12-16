@@ -4,10 +4,11 @@ fun test s p e f =
     let val () = print (s ^ ": ")
         val res = f ()
     in if res = e then print "OK\n"
-       else print ("ERR - expecting " ^ p e ^ " - got " ^ p res ^ "\n")
+       else print ("ERR - expecting '" ^ p e ^ "' (size " ^ Int.toString(size(p e)) ^
+                   ") - got '" ^ p res ^ "' (size " ^ Int.toString(size(p res)) ^ ")\n")
     end
-    handle Fail msg => print ("EXN Fail(" ^ msg ^ ") - expected " ^ p e ^ "\n")
-         | _ => print ("EXN - expected " ^ p e ^ "\n")
+    handle Fail msg => print ("EXN Fail(" ^ msg ^ ") - expected '" ^ p e ^ "'\n")
+         | _ => print ("EXN - expected '" ^ p e ^ "'\n")
 
 fun id x = x
 
@@ -78,6 +79,10 @@ val () = test "status-1" id "200" (fn () => StatusCode.toString(fromString Statu
 
 val () = test "status-2" id "OK" (fn () => StatusCode.reason(fromString StatusCode.parse "200"))
 
+fun statusFromString s = fromString StatusCode.parse s
+
+val () = test "status-3" id "200" (fn () => StatusCode.toString (statusFromString "200"))
+
 
 (* Headers *)
 
@@ -147,3 +152,51 @@ val () = test_req_headerslack "req-12"
 val () = test_req_headerslack "req-13"
      "DELETE /data?id=8 HTTP/1.0\r\n\r\n"
      "DELETE /data?id=8 HTTP/1.0\r\n\r\n"
+
+(* Response lines *)
+
+fun lineFromString s =
+    case Response.parse_line CharVectorSlice.getItem
+                             (CharVectorSlice.full s) of
+        SOME (r,_) => SOME r
+      | NONE => NONE
+
+val l = {version=Version.HTTP_1_1, status=StatusCode.OK}
+
+val ls = "HTTP/1.1 200 OK"
+
+val () = test "respline-1" id
+              ls
+              (fn () => Response.lineToString l)
+
+val () = test "respline-2" id
+              ls
+              (fn () => Response.lineToString(fromString Response.parse_line ls))
+
+(* Responses *)
+
+val r0 = {line={version=Version.HTTP_1_1, status=StatusCode.OK},
+          headers=[], body=NONE}
+
+val rs0 = "HTTP/1.1 200 OK\r\n\r\n"
+
+val () = test "resp-0a" id
+              rs0
+              (fn () => Response.toString r0)
+
+val () = test "resp-0b" id
+              rs0
+              (fn () => Response.toString (fromString Response.parse rs0))
+
+val r = {line={version=Version.HTTP_1_1, status=StatusCode.OK},
+         headers=[("Content-Length", "45")], body=NONE}
+
+val rs = "HTTP/1.1 200 OK\r\nContent-Length:45\r\n\r\n"
+
+val () = test "resp-1a" id
+              rs
+              (fn () => Response.toString r)
+
+val () = test "resp-1b" id
+              rs
+              (fn () => Response.toString(fromString Response.parse rs))
