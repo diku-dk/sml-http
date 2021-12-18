@@ -22,6 +22,8 @@ structure Http :> HTTP = struct
              else SOME((),s)
            | NONE => SOME((),s)
 
+  structure Util = HttpUtil
+
   structure Uri = struct
     datatype t = URL of {scheme: string, host: string,
                          port: int option, path: string,
@@ -121,8 +123,13 @@ structure Http :> HTTP = struct
     open HttpStatus
     val parse : (t, 'st) p =  (* 3 digits *)
      fn g => (scanChars Char.isDigit ?? fromString) g
+
     val OK = "200"
+    val Redirect = "302"
     val BadRequest = "400"
+    val Forbidden = "403"
+    val NotFound = "404"
+    val LengthRequired = "411"
     val InternalServerError = "500"
   end
 
@@ -150,6 +157,20 @@ structure Http :> HTTP = struct
              ) g
     fun toString (n,v) =
         n ^ ":" ^ v
+
+    fun key_eq x y =
+        size x = size y andalso
+        let fun loop i =
+                if i < 0 then true
+                else Char.toLower (String.sub(x,i)) =
+                     Char.toLower (String.sub(y,i)) andalso loop (i-1)
+        in loop (size x - 1)
+        end
+
+    fun look nil k = NONE
+      | look ((x,y)::rest) k = if key_eq x k then SOME y
+                               else look rest k
+
   end
 
   structure Request = struct
@@ -177,10 +198,13 @@ structure Http :> HTTP = struct
               Version.parse >>@
               (fn ((m,u),v) => {method=m,uri=u,version=v})) g
 
+    val parse_line_and_headers : (line*Header.t list, 'st) p =
+        fn g => (parse_line >>-
+                 str "\r\n" >>>
+                 parse_headers) g
+
     val parse : (t, 'st) p =
-     fn g => (parse_line >>-
-              str "\r\n" >>>
-              parse_headers >>-
+     fn g => (parse_line_and_headers >>-
               str "\r\n" >>>
               (scanAnyChars >>@ (fn "" => NONE | s => SOME s)) >>-
               eos >>@ (fn ((l,hs),body) =>

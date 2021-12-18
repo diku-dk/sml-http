@@ -1,0 +1,6 @@
+local
+  $(SML_LIB)/basis/basis.mlb
+  ../http.mlb
+in
+  test2.sml
+end
