@@ -1,5 +1,8 @@
 structure Http :> HTTP = struct
 
+  infix |>
+  fun x |> f = f x
+
   open ScanUtil
   infix >>> ->> >>- >>? || >>@ >>* ??
 
@@ -236,6 +239,162 @@ structure Http :> HTTP = struct
                               foldr (fn (h,a) => Header.toString h :: a)
                                     ["",body] headers)
         end
+
+    (* Multi-part form data *)
+
+    datatype mpfd =
+       File_mpfd of { name          : string,
+                      filename      : string,
+                      content       : substring,
+                      content_types : (string*string) list
+                    }
+     | Norm_mpfd of { name          : string,
+                      content       : substring,
+                      content_types : (string*string) list
+                    }
+
+    val skipWs : (unit,'st) p =
+     fn g => skipChars Char.isSpace g
+
+    val scan_boundary : (string,'st) p =
+     fn g => (skipWs ->>
+              str "multipart/form-data;" ->>
+              skipWs ->>
+              str "boundary=" ->>
+              scanChars (fn c => c <> #"\r" andalso c <> #"\n")) g
+
+    structure SS = Substring
+
+    fun splitByString (sep:string) (s:substring) : substring list =
+        let fun loop (s:substring) (acc:substring list) : substring list =
+                if SS.isEmpty s then List.rev acc
+                else let val (pref,suff) = SS.position sep s
+                         val acc = if SS.isEmpty pref then acc
+                                   else pref::acc
+                     in if SS.isEmpty suff then List.rev acc
+                        else loop (SS.slice(suff,size sep,NONE))
+                                  acc
+                     end
+        in loop s nil
+        end
+
+    fun extractBoundary s =
+        case scan_boundary SS.getc (SS.full s) of
+            SOME (b,st) => if SS.isEmpty st then SOME b else NONE
+          | NONE  => NONE
+
+    fun splitData boundary data =
+        let fun fixFirstPart ps =
+                case ps of
+                    nil => nil
+                  | p::ps =>
+                    case splitByString ("--" ^ boundary ^ "\r\n") p of
+                        [y] => y::ps
+                      | _ => p::ps
+            fun fixLastPart ps =
+                case List.rev ps of
+                    nil => nil
+                 |  p :: ps =>
+                    case splitByString ("\r\n--" ^ boundary ^ "--\r\n") p of
+                        [y] => List.rev (y::ps)
+                      | _ => List.rev (p::ps)
+        in splitByString ("\r\n--" ^ boundary ^ "\r\n") data
+                         |> fixFirstPart
+                         |> fixLastPart
+        end
+
+    val parse_rest : (substring,substring) p =
+     fn g => fn ss => SOME (ss,SS.full "")
+
+    val parse_id : (string, 'st) p =
+     fn g => scanChars (fn c => Char.isPrint c andalso c <> #";"
+                                andalso c <> #"=") g
+
+    fun clean s = SS.full s
+               |> SS.dropl Char.isSpace
+               |> SS.dropr Char.isSpace
+               |> (fn s => if SS.size s >= 2 andalso
+                              (SS.isPrefix "\"" s andalso SS.isSuffix "\"" s
+                               orelse SS.isPrefix "'" s andalso SS.isSuffix "'" s)
+                           then CharVectorSlice.subslice(s,1,SOME(SS.size s - 2))
+                           else s
+                  )
+               |> SS.string
+
+    val parse_kv : (string*string,'st) p =
+     fn g =>
+        (skipWs ->>
+         parse_id >>-
+         str "=" >>-
+         skipWs >>>
+         parse_id >>@ (fn (k,v) => (clean k,
+                                    clean v))
+        ) g
+
+    val rec parse_kvs : (Header.t list, 'st) p =
+     fn g => ((parse_kv >>@ (fn a => [a]) >>? (str ";" ->> parse_kvs)) (fn (a,b) => a@b)
+             ) g
+
+    fun parse_disp (cts,ss) : (mpfd, 'st) p =
+        fn g => (skipWs ->>
+                 str "form-data;" ->>
+                 parse_kvs ??
+                 (fn kvs =>
+                     case (Header.look kvs "name",
+                           Header.look kvs "filename") of
+                         (SOME name, SOME filename) =>
+                         SOME(File_mpfd {name=name,
+                                         filename=filename,
+                                         content=ss,
+                                         content_types=cts})
+                       | (SOME name, NONE) =>
+                         SOME(Norm_mpfd {name=name,
+                                         content=ss,
+                                         content_types=cts})
+                       | _ => NONE
+                 )) g
+
+    val parseFD : (mpfd,substring) p =
+     fn g =>
+        (parse_headers >>-
+         str "\r\n" >>>
+         parse_rest ??
+         (fn (headers, ss:substring) =>
+             case Header.look headers "Content-Disposition" of
+                 NONE => NONE
+               | SOME disp =>
+                 let val cts = List.filter (fn (k,v) => Header.key_eq "Content-Type" k) headers
+                 in case parse_disp (cts,ss) SS.getc (SS.full disp) of
+                        SOME(x,_) => SOME x
+                      | NONE => NONE
+                 end)
+        ) g
+
+    fun parseMPFD {contentType} : substring -> mpfd list option =
+        fn ss =>
+           case extractBoundary contentType of
+               NONE => NONE
+             | SOME boundary =>
+               let val parts = splitData boundary ss
+               in foldr (fn (part, NONE) => NONE
+                          | (part, SOME acc) =>
+                            case parseFD SS.getc part of
+                                SOME (mpfd, ss) =>
+                                if SS.isEmpty ss then SOME (mpfd::acc)
+                                else NONE
+                              | NONE => NONE)
+                        (SOME nil) parts
+               end
+
+    fun dataFromString (data:string) : (string * string) list =
+      let val tokens = String.tokens (fn c => c = #"&") data
+      in List.foldr (fn (t,acc)=>
+                        case String.tokens (fn c => c = #"=") t of
+                            [k,v] => (k,Util.decodeUrl v)::acc
+                          | nil => acc
+                          | k::_ => (k,"")::acc) nil tokens
+      end
+
   end
 
   structure Response = struct

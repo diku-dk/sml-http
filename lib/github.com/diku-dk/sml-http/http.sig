@@ -6,24 +6,6 @@ signature HTTP = sig
      val decodeUrl : string -> string
      val encodeUrl : string -> string
      val buildUrl  : string -> (string * string) list -> string
-(*
-     val parseData : ((string * string) list,'st) p (* POST url-encoded data or query data *)
-
-     val dataFromString : string -> (string * string) list
-
-     datatype mpfd_entry = Files of {filename: string,
-                                     filesize: int,
-                                     content : substring,
-                                     content_types: (string*string) list} list
-                         | Normal of {content: substring,
-                                      content: (string*string) list}
-
-     val parseMultiPartFormData : {contentType: string} ->
-                                  (mpfd_entry list,'st) p
-
-     val multiPartFormDataFromString : {contentType: string}
-                                       -> string -> mpfd_entry list option
-*)
   end
 
   structure Uri : sig
@@ -80,7 +62,7 @@ signature HTTP = sig
     datatype method = OPTIONS | GET | HEAD | POST | PUT | DELETE | TRACE | CONNECT
 
     type line = {method: method, uri: Uri.t, version: Version.t}
-    type t = {line:line, headers: (string*string)list, body: string option}
+    type t = {line:line, headers: Header.t list, body: string option}
 
     val parse_method           : (method, 'st) p
     val parse_headers          : (Header.t list, 'st) p
@@ -90,6 +72,24 @@ signature HTTP = sig
     val methodToString         : method -> string
     val lineToString           : line -> string
     val toString               : t -> string
+
+    (* Url-encoded form data *)
+    val dataFromString         : string -> Header.t list
+
+    (* Multi-part form-data *)
+    datatype mpfd =
+        File_mpfd of { name          : string,
+                       filename      : string,
+                       content       : substring,
+                       content_types : Header.t list
+                     }
+      | Norm_mpfd of { name          : string,
+                       content       : substring,
+                       content_types : Header.t list
+                     }
+
+    val parseMPFD             : {contentType: string} -> substring
+                                -> mpfd list option
   end
 
   structure Response : sig

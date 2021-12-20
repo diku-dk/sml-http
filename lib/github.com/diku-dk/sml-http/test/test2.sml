@@ -25,4 +25,63 @@ fun test_urlencode s = test "url-deencode" id s (fn () => decodeUrl(encodeUrl s)
 
 val () = app test_urlencode ["", "abc", "sdfj3wewe", " efd eed & /(982s"]
 
-val () = print "Ending\n"
+(* Multi-part form-data *)
+
+val contentType = "multipart/form-data; boundary=----WebKitFormBoundaryksWgGlysQDIBSQfv"
+
+val data =
+    String.concatWith "\r\n"
+ ["------WebKitFormBoundaryksWgGlysQDIBSQfv",
+  "Content-Disposition: form-data; name=\"file\"; filename=\"test1.mlb\"",
+  "Content-Type: application/octet-stream",
+  "",
+  "local",
+  "  $(SML_LIB)/basis/basis.mlb",
+  "  ../server.mlb",
+  "in",
+  "  test1.sml",
+  "end",
+  "",
+  "------WebKitFormBoundaryksWgGlysQDIBSQfv",
+  "Content-Disposition: form-data; name=\"file\"; filename=\"test2.out.ok\"",
+  "Content-Type: application/octet-stream",
+  "",
+  "url-encode-1: OK",
+  "url-encode-2: OK",
+  "url-deencode: OK",
+  "Ending",
+  "",
+  "------WebKitFormBoundaryksWgGlysQDIBSQfv--",
+  ""]
+
+val l = Http.Request.parseMPFD {contentType=contentType}
+                               (Substring.full data)
+
+fun prPart p =
+    let open Http.Request
+    in case p of
+           File_mpfd {name,filename,content,...} =>
+           print ("name=" ^ name ^ "; filename=" ^ filename ^ "; size(content)=" ^
+                  Int.toString (Substring.size (content)) ^ "\n")
+         | Norm_mpfd {name,content,...} =>
+           print ("name=" ^ name ^ "; size(content)=" ^
+                  Int.toString (Substring.size (content)) ^ "\n")
+    end
+
+val () = case l of
+             SOME l =>
+             ( print ("MPFD: length(l) = " ^ Int.toString (length l) ^ "\n")
+             ; app prPart l
+             )
+           | NONE =>
+             print "MPFD: err\n"
+
+val kvs = Http.Request.dataFromString "first=this+is+a+field&second=was+it+clear+%28already%29%3F"
+
+val () = test "dataFromString-1" (fn x => Option.getOpt(x,""))
+              (SOME"this is a field")
+              (fn () => Http.Header.look kvs "first")
+
+val () = test "dataFromString-2" (fn x => Option.getOpt(x,""))
+              (SOME"was it clear (already)?")
+              (fn () => Http.Header.look kvs "second")

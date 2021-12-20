@@ -7,7 +7,9 @@ fun encodeUrl (s:string) : string =
         val a = CharArray.array(len,#"0")
         val hex = "0123456789abcdef"
     in CharVector.foldl (fn (c,i) =>
-                            if Char.isAlphaNum c
+                            if Char.isAlphaNum c (*orelse c = #"~"*)
+                               orelse c = #"-" orelse c = #"."
+                               orelse c = #"_"
                             then ( CharArray.update(a,i,c)
                                  ; i+1 )
                             else let val e = Char.ord c
@@ -54,8 +56,12 @@ fun decodeUrl (s:string) : string =
                 (fn (c,(i,ac)) =>
                     case ac of
                         NONE => if c = #"%" then (i,SOME NONE)
-                                else ( CharArray.update(a,i,c)
-                                     ; (i+1,ac) )
+                                else if c = #"+" then
+                                  ( CharArray.update(a,i,#" ")
+                                  ; (i+1,ac) )
+                                else
+                                  ( CharArray.update(a,i,c)
+                                  ; (i+1,ac) )
                       | SOME NONE =>
                         if Char.isHexDigit c then
                           (i,SOME (SOME c))
@@ -84,6 +90,5 @@ fun decodeUrl (s:string) : string =
 
 fun buildUrl action hvs =
     action ^ "?" ^ (String.concatWith "&" (List.map (fn (n,v) => n ^ "=" ^ encodeUrl v) hvs))
-
 
 end

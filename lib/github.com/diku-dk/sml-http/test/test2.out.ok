@@ -9,4 +9,8 @@ url-deencode: OK
 url-deencode: OK
 url-deencode: OK
 url-deencode: OK
-Ending
+MPFD: length(l) = 2
+name=file; filename=test1.mlb; size(content)=76
+name=file; filename=test2.out.ok; size(content)=62
+dataFromString-1: OK
+dataFromString-2: OK
