@@ -11,6 +11,7 @@ test: lib/github.com/diku-dk/sml-parse
 .PHONY: clean
 clean:
 	$(MAKE) -C lib/github.com/diku-dk/sml-http clean
+	find . -name 'MLB' | xargs rm -rf
 	rm -rf MLB *~ .*~
 
 .PHONY: realclean

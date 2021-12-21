@@ -55,6 +55,8 @@ signature HTTP = sig
     type t = string * string
     val parse    : (t, 'st) p
     val look     : t list -> string -> string option (* case insensitive *)
+    val lookAll  : t list -> string -> string list   (* case insensitive *)
+    val keyEq    : string -> string -> bool          (* case insensitive *)
     val toString : t -> string
   end
 

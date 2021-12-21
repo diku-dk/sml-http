@@ -161,7 +161,7 @@ structure Http :> HTTP = struct
     fun toString (n,v) =
         n ^ ":" ^ v
 
-    fun key_eq x y =
+    fun keyEq x y =
         size x = size y andalso
         let fun loop i =
                 if i < 0 then true
@@ -171,8 +171,16 @@ structure Http :> HTTP = struct
         end
 
     fun look nil k = NONE
-      | look ((x,y)::rest) k = if key_eq x k then SOME y
+      | look ((x,y)::rest) k = if keyEq x k then SOME y
                                else look rest k
+
+    fun lookAll pairs k =
+        let fun loop nil acc = rev acc
+              | loop ((x,y)::rest) acc =
+                if keyEq x k then loop rest (k::acc)
+                else loop rest acc
+        in loop pairs nil
+        end
 
   end
 
@@ -363,7 +371,7 @@ structure Http :> HTTP = struct
              case Header.look headers "Content-Disposition" of
                  NONE => NONE
                | SOME disp =>
-                 let val cts = List.filter (fn (k,v) => Header.key_eq "Content-Type" k) headers
+                 let val cts = List.filter (fn (k,v) => Header.keyEq "Content-Type" k) headers
                  in case parse_disp (cts,ss) SS.getc (SS.full disp) of
                         SOME(x,_) => SOME x
                       | NONE => NONE
