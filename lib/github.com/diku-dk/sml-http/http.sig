@@ -21,10 +21,12 @@ signature HTTP = sig
 
   structure Mime : sig
     type t
-    val parse      : (t, 'st) p
-    val toString   : t -> string
-    val fromString : string -> t option
-    val fromExt    : string -> t option
+    val parse         : (t, 'st) p
+    val toString      : t -> string
+    val fromString    : string -> t option
+    val fromExt       : string -> t option
+    val addEncoding   : t -> string -> t
+    val fromStringRaw : string -> t
   end
 
   structure Version : sig

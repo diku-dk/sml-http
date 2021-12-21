@@ -1,9 +1,11 @@
 structure HttpMime :> sig
   type t
-  val fromString : string -> t option
-  val desc       : t -> string
-  val fromExt    : string -> t option
-  val toString   : t -> string
+  val fromString    : string -> t option
+  val desc          : t -> string
+  val fromExt       : string -> t option
+  val toString      : t -> string
+  val addEncoding   : t -> string -> t
+  val fromStringRaw : string -> t
 end =
 struct
 
@@ -171,6 +173,11 @@ fun fromString t =
     case desc0 t of
         SOME _ => SOME t
       | NONE => NONE
+
+fun addEncoding t s =
+    t ^ ";" ^ s
+
+fun fromStringRaw s = s
 
 fun desc t =
     case desc0 t of
